@@ -252,7 +252,7 @@ table.tbl tbody tr:last-child td{border-bottom:1px solid #e0e8f0}
 <script>
 'use strict';
 /* 배포 후 이 주소를 새 /exec 로 바꾼다. */
-const API = 'https://script.google.com/macros/s/AKfycbwLzsAYCkzcDk9XjVpN5Enh3l6UBzqVy8GptR_tFFnGD2TqV3GgYYrFEHJgSb5EtE87/exec';
+const API = 'https://script.google.com/macros/s/AKfycbwVX46lZTq1lHn-jzRHY_76VdN8BC8OxEUE7--q7g-A1qZIzZmYQ5H4ei1xIOu0XBpP/exec';
 
 const PW_KEY = 'hr_teacher_pw_v2';
 let PW = null;
@@ -324,7 +324,8 @@ function fixTime(v) {
   return isNaN(d.getTime()) ? s : d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
 }
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const todayStr = () => new Date().toLocaleDateString('ko-KR');
+// 서버가 날짜를 YYYY-MM-DD 로 통일해 보내므로 오늘 날짜도 같은 모양이어야 비교가 된다.
+const todayStr = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); };
 
 function playDing() {
   try {

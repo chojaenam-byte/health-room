@@ -179,15 +179,67 @@ function _sheet(name) {
 }
 
 /** 시트를 객체 배열로 읽는다. 헤더 이름을 그대로 키로 쓴다. */
+/**
+ * 날짜를 YYYY-MM-DD 로 맞춘다.
+ * 시트 서식과 손으로 고친 값이 섞여 "2026-08-28", "2026. 8. 28.", "2026년 8월 28일"이
+ * 다 나온다. 통계는 이 값을 오늘 날짜와 문자열로 비교하므로 모양이 하나여야 한다.
+ * 못 알아보는 값은 그대로 돌려준다.
+ */
+function _normDate(s) {
+  s = String(s == null ? '' : s).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  var m = s.match(/^(\d{4})\D+(\d{1,2})\D+(\d{1,2})\D*$/);
+  if (!m) return s;
+  var mm = m[2].length < 2 ? '0' + m[2] : m[2];
+  var dd = m[3].length < 2 ? '0' + m[3] : m[3];
+  return m[1] + '-' + mm + '-' + dd;
+}
+
+/**
+ * 시각을 24시간 HH:mm 으로 맞춘다.
+ * 시트가 셀 서식에 따라 "15:00", "3:00:00 PM", "오후 3:00:00" 중 아무거나 보여줘서
+ * 읽는 쪽에서 한 번에 정리한다. 못 알아보는 값은 건드리지 않고 그대로 돌려준다.
+ */
+function _normTime(s) {
+  s = String(s == null ? '' : s).trim();
+  var ap = '';
+  var m = s.match(/^(오전|오후|AM|PM)\s+(.*)$/i);          // 한국어는 앞에 온다
+  if (m) { ap = m[1]; s = m[2]; }
+  m = s.match(/^(\d{1,2}):(\d{2})(?::\d{2})?(?:\s*(AM|PM))?$/i);
+  if (!m) return s;
+  if (m[3]) ap = m[3];
+  var h = parseInt(m[1], 10);
+  ap = ap.toUpperCase();
+  if (ap === 'PM' || ap === '오후') { if (h < 12) h += 12; }
+  if (ap === 'AM' || ap === '오전') { if (h === 12) h = 0; }
+  return (h < 10 ? '0' + h : String(h)) + ':' + m[2];
+}
+
+/** 값을 Date 로 되돌리면 안 되는 열. 아래 TEXT_COLS 주석 참조. */
+var TEXT_COLS = { time: 1, date: 1 };
+
+/**
+ * 시트를 객체 배열로 읽는다. 헤더 이름을 그대로 키로 쓴다.
+ *
+ * time·date 는 화면에 보이는 글자(getDisplayValues)를 그대로 쓴다.
+ * 왜: 시트가 "15:00" 을 시각 값으로 바꿔 1899-12-30 에 매달아 저장하는데,
+ * 그 시절 서울 표준시가 지금과 몇 분 달라서 Date 로 받아 브라우저에서 되돌리면
+ * 15:00 이 14:58 로 나온다(2026-08-28 실측, v1도 같은 증상). 표시값은 시트가
+ * 화면에 쓰는 글자 그대로라 이 왕복이 아예 없다. 열 서식을 텍스트로 고정해도
+ * 시각만은 계속 변환돼서, 읽는 쪽에서 끊는다.
+ */
 function _readAll(name) {
-  var sh = _sheet(name), vals = sh.getDataRange().getValues();
+  var sh = _sheet(name), rng = sh.getDataRange();
+  var vals = rng.getValues(), disp = rng.getDisplayValues();
   if (vals.length < 2) return [];
   var head = vals[0].map(String);
   var out = [];
   for (var r = 1; r < vals.length; r++) {
     var o = {}, empty = true;
     for (var c = 0; c < head.length; c++) {
-      var v = vals[r][c];
+      var v = TEXT_COLS[head[c]] ? disp[r][c] : vals[r][c];
+      if (head[c] === 'time') v = _normTime(v);
+      if (head[c] === 'date') v = _normDate(v);
       if (v !== '' && v !== null) empty = false;
       o[head[c]] = (v instanceof Date) ? v.toISOString() : v;
     }
@@ -425,6 +477,20 @@ function deleteLog_(key, ts) {
  * 처음 한 번. 전용 스프레드시트를 만들고 시트를 깔고 비밀번호를 정한다.
  * 실행 후 로그에 시트 주소가 나온다. 그 주소를 보관할 것.
  */
+/**
+ * time·date 열을 서식 없는 텍스트로 고정한다.
+ * 왜: 그냥 두면 시트가 "15:00"을 시각 값으로 바꿔 1899-12-30에 매달아 저장한다.
+ * 그 시절 서울 표준시가 지금(+9:00)과 몇 분 달라서, 다시 읽어 화면에 뿌리면
+ * 15:00 이 14:58 로 보인다(2026-08-28 실측). v1도 같은 증상이 있었다.
+ * 여러 번 실행해도 안전하다 — setup()이 매번 부른다.
+ */
+function _forceTextCols() {
+  ['queue', 'logs'].forEach(function (n) {
+    var sh = _sheet(n);
+    sh.getRange(1, 6, sh.getMaxRows(), 2).setNumberFormat('@');   // time, date
+  });
+}
+
 function setup() {
   var id = PROP.getProperty('SHEET_ID');
   if (!id) {
@@ -438,6 +504,7 @@ function setup() {
       ss.insertSheet(n).appendRow(COLS[n]);
     });
   }
+  _forceTextCols();
   if (!PROP.getProperty('TEACHER_PW')) {
     PROP.setProperty('TEACHER_PW', Utilities.getUuid().slice(0, 8));
   }
