@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="보건실 접수">
+<meta name="theme-color" content="#185FA5">
+<title>보건실 대기 접수 (v2 테스트)</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+html{height:100%}
+body{width:100%;height:100%;height:100dvh;overflow:hidden;font-family:'Noto Sans KR',sans-serif;background:#f0f4f8;display:flex;flex-direction:column}
+.header{background:#185FA5;color:#fff;padding:10px 24px;display:flex;align-items:center;justify-content:space-between;height:68px;flex-shrink:0}
+.htitle{font-size:28px;font-weight:700}
+.htitle .tag{font-size:13px;font-weight:600;background:rgba(255,255,255,.22);padding:3px 9px;border-radius:6px;margin-left:10px;vertical-align:middle}
+.clock-box{text-align:right}
+.clock-time{font-size:30px;font-weight:700;letter-spacing:2px;font-variant-numeric:tabular-nums}
+.clock-date{font-size:13px;opacity:.85;margin-top:2px}
+.body{display:grid;grid-template-columns:1fr 200px;flex:1;min-height:0;overflow:hidden}
+.left{padding:16px 20px;display:flex;flex-direction:column;gap:12px;overflow:hidden;min-height:0}
+.preview-box{background:#fff;border:2px solid #e0e8f0;border-radius:16px;padding:20px 24px;flex-shrink:0;min-height:110px;display:flex;align-items:center}
+.pname{font-size:42px;font-weight:900;color:#185FA5;line-height:1.1}
+.pid{font-size:17px;color:#666;margin-top:6px;font-weight:600}
+.perr{font-size:18px;color:#c0392b;font-weight:700}
+.phint{font-size:17px;color:#bbb}
+.num-display{background:#fff;border:2px solid #c5d5e8;border-radius:12px;padding:12px 18px;font-size:52px;font-weight:900;letter-spacing:12px;color:#185FA5;text-align:center;font-variant-numeric:tabular-nums;min-height:82px;flex-shrink:0}
+.input-area{display:flex;flex-direction:column;gap:5px;flex:1;min-height:0}
+.keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;flex:1;min-height:0}
+.action-btns{display:flex;gap:10px;flex-shrink:0;height:110px;margin-top:24px}
+.abtn{padding:0;border:none;border-radius:14px;cursor:pointer;font-weight:900;transition:all .15s;display:flex;flex-direction:row;align-items:center;justify-content:center;gap:8px;flex:1;font-size:26px}
+.abtn.submit{background:#185FA5;color:#fff}
+.abtn.submit:disabled{background:#c5d5e8;color:#aaa;cursor:not-allowed}
+.abtn.submit:active{transform:scale(.97)}
+.abtn.reset{background:#f97316;color:#fff}
+.abtn.reset:active{transform:scale(.97)}
+.abtn .icon{font-size:22px}
+.success-msg{display:none;padding:12px 16px;background:#e1f5ee;border:2px solid #5dcaa5;border-radius:12px;text-align:center;font-size:15px;font-weight:700;color:#085041;flex-shrink:0}
+.success-msg.show{display:block;animation:pop .3s ease}
+.offline-msg{display:none;padding:8px 12px;background:#fff3cd;border-radius:8px;font-size:12px;color:#856404;text-align:center;flex-shrink:0}
+.offline-msg.show{display:block}
+.kbtn{padding:0;border:2px solid #c5d5e8;border-radius:12px;background:#fff;cursor:pointer;font-size:40px;font-weight:700;color:#222;user-select:none;display:flex;align-items:center;justify-content:center;width:100%;height:100%}
+.kbtn:active{background:#d0e4f5;transform:scale(.93)}
+.kbtn.del{font-size:18px;color:#888;font-weight:700}
+.kbtn.zero{grid-column:1/3}
+.right{background:#185FA5;padding:16px;display:flex;flex-direction:column;gap:10px;overflow:hidden}
+.r-section{background:rgba(255,255,255,.15);border-radius:12px;padding:12px;text-align:center;flex-shrink:0}
+.r-label{font-size:12px;color:rgba(255,255,255,.8);margin-bottom:4px;font-weight:600}
+.r-num{font-size:44px;font-weight:700;color:#fff;line-height:1}
+.r-unit{font-size:14px;color:rgba(255,255,255,.8);margin-top:4px}
+.r-list-title{font-size:13px;color:rgba(255,255,255,.8);font-weight:600;margin-bottom:8px;flex-shrink:0}
+.mini-list{display:flex;flex-direction:column;gap:6px;overflow-y:auto;flex:1;min-height:0}
+.mini-item{padding:9px 12px;background:rgba(255,255,255,.18);border-radius:10px;font-size:14px;display:flex;gap:8px;align-items:center}
+.mi-num{color:rgba(255,255,255,.6);font-size:12px;min-width:18px}
+.mi-name{font-weight:700;color:#fff;flex:1}
+@keyframes pop{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
+@keyframes bellblink{0%,100%{opacity:1;background:#e63946}50%{opacity:.7;background:#c1121f}}
+.bell-overlay{display:none;position:fixed;inset:0;z-index:99999;background:#e63946;align-items:center;justify-content:center;flex-direction:column;gap:20px}
+.bell-overlay.show{display:flex;animation:bellblink .8s infinite}
+.bell-text{font-size:clamp(72px,12vw,160px);font-weight:900;color:#fff;text-align:center;letter-spacing:2px;text-shadow:0 2px 12px rgba(0,0,0,.3)}
+.bell-sub{font-size:clamp(42px,7vw,100px);font-weight:700;color:rgba(255,255,255,.9);text-align:center}
+.bell-timer{font-size:clamp(24px,3vw,48px);color:rgba(255,255,255,.8);font-variant-numeric:tabular-nums}
+/* 기기 등록 화면 */
+.setup{display:none;position:fixed;inset:0;z-index:9999;background:#185FA5;align-items:center;justify-content:center;flex-direction:column;gap:18px;padding:24px}
+.setup.show{display:flex}
+.setup h2{color:#fff;font-size:30px;font-weight:800}
+.setup p{color:rgba(255,255,255,.85);font-size:16px;text-align:center;max-width:440px;line-height:1.6}
+.setup input{padding:14px 18px;border:none;border-radius:12px;font-size:22px;width:280px;text-align:center;font-family:inherit}
+.setup button{padding:14px 34px;border:none;border-radius:12px;background:#fff;color:#185FA5;font-size:18px;font-weight:800;cursor:pointer;font-family:inherit}
+.setup .err{color:#ffd9d9;font-size:15px;font-weight:700;min-height:20px}
+</style>
+</head>
+<body>
+
+<div class="setup" id="setup">
+  <h2>기기 등록</h2>
+  <p>이 태블릿을 보건실 접수기로 등록합니다.<br>보건 선생님이 <b>한 번만</b> 비밀번호를 넣어주세요.<br>등록 후에는 학생이 아무것도 입력할 필요가 없습니다.</p>
+  <input type="password" id="setup-pw" placeholder="교사 비밀번호" autocomplete="off">
+  <button id="setup-btn">등록</button>
+  <div class="err" id="setup-err"></div>
+</div>
+
+<div class="bell-overlay" id="bell-overlay">
+  <div class="bell-text">🔔 수업 시작</div>
+  <div class="bell-sub">교실로 돌아가세요</div>
+  <div class="bell-timer" id="bell-timer">30초 후 사라집니다</div>
+</div>
+
+<div class="header">
+  <div class="htitle">보건실 대기 접수<span class="tag">v2 테스트</span></div>
+  <div class="clock-box">
+    <div class="clock-time" id="clock-time">00:00:00</div>
+    <div class="clock-date" id="clock-date"></div>
+  </div>
+</div>
+
+<div class="body">
+  <div class="left">
+    <div class="offline-msg" id="offline-msg">서버 연결 중... 잠시 기다려주세요</div>
+    <div class="preview-box" id="preview"><span class="phint">학번 4자리를 입력하세요</span></div>
+    <div class="num-display" id="num-disp">— — — —</div>
+    <div class="input-area">
+      <div class="keypad">
+        <button class="kbtn" data-k="1">1</button>
+        <button class="kbtn" data-k="2">2</button>
+        <button class="kbtn" data-k="3">3</button>
+        <button class="kbtn" data-k="4">4</button>
+        <button class="kbtn" data-k="5">5</button>
+        <button class="kbtn" data-k="6">6</button>
+        <button class="kbtn" data-k="7">7</button>
+        <button class="kbtn" data-k="8">8</button>
+        <button class="kbtn" data-k="9">9</button>
+        <button class="kbtn zero" data-k="0">0</button>
+        <button class="kbtn del" data-k="del">지움</button>
+      </div>
+      <div class="action-btns">
+        <button class="abtn submit" id="qbtn" data-k="submit" disabled><span class="icon">✔</span>대기신청</button>
+        <button class="abtn reset" data-k="reset"><span class="icon">↺</span>초기화</button>
+      </div>
+      <div class="success-msg" id="ok-msg"></div>
+    </div>
+  </div>
+
+  <div class="right">
+    <div class="r-section">
+      <div class="r-label">현재 대기 인원</div>
+      <div class="r-num" id="r-count">0</div>
+      <div class="r-unit">명</div>
+    </div>
+    <div class="r-list-title">대기 목록</div>
+    <div class="mini-list" id="r-list">
+      <div style="text-align:center;padding:16px;font-size:13px;color:rgba(255,255,255,.5)">없음</div>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* 배포 후 이 주소를 새 /exec 로 바꾼다. */
+const API = 'https://script.google.com/macros/s/AKfycbwLzsAYCkzcDk9XjVpN5Enh3l6UBzqVy8GptR_tFFnGD2TqV3GgYYrFEHJgSb5EtE87/exec';
+
+/* 기기 토큰은 소스에 없다. 등록할 때 서버가 주고 이 기기에만 남는다. */
+const TOKEN_KEY = 'hr_kiosk_token_v2';
+let TOKEN = null;
+try { TOKEN = localStorage.getItem(TOKEN_KEY); } catch (e) {}
+
+let N = '', found = null, busy = false, lastBell = 0;
+
+/* ── 통신 ── */
+function api(params) {
+  return new Promise(resolve => {
+    const cb = 'cb' + Date.now() + Math.floor(Math.random() * 9999);
+    const clean = () => { delete window[cb]; const el = document.getElementById('s_' + cb); if (el) el.remove(); };
+    window[cb] = d => { clean(); resolve(d); };
+    const qs = Object.entries(params).map(([k, v]) => k + '=' + encodeURIComponent(String(v))).join('&');
+    const s = document.createElement('script');
+    s.id = 's_' + cb;
+    s.src = API + '?' + qs + '&callback=' + cb;
+    s.onerror = () => { clean(); resolve({ error: 'network error' }); };
+    document.head.appendChild(s);
+    setTimeout(() => { if (window[cb]) { clean(); resolve({ error: 'timeout' }); } }, 15000);
+  });
+}
+const auth = params => api(Object.assign({ token: TOKEN }, params));
+
+/* ── 기기 등록 ── */
+function showSetup(msg) {
+  document.getElementById('setup').classList.add('show');
+  if (msg) document.getElementById('setup-err').textContent = msg;
+}
+async function doSetup() {
+  const pw = document.getElementById('setup-pw').value.trim();
+  if (!pw) return;
+  document.getElementById('setup-err').textContent = '확인 중...';
+  const res = await api({ action: 'provisionKiosk', pw });
+  if (res.error || !res.token) {
+    document.getElementById('setup-err').textContent = res.error || '등록에 실패했습니다.';
+    return;
+  }
+  TOKEN = res.token;
+  try { localStorage.setItem(TOKEN_KEY, TOKEN); } catch (e) {}
+  document.getElementById('setup').classList.remove('show');
+  document.getElementById('setup-pw').value = '';
+  document.getElementById('setup-err').textContent = '';
+  loadQueue();
+}
+
+/* ── 시계 ── */
+function tickClock() {
+  const now = new Date();
+  document.getElementById('clock-time').textContent =
+    now.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+  const days = ['일', '월', '화', '수', '목', '금', '토'];
+  document.getElementById('clock-date').textContent =
+    now.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' }) + ' (' + days[now.getDay()] + ')';
+}
+
+/* ── 입력 ── */
+function updateNumDisp() {
+  const chars = N.split('');
+  while (chars.length < 4) chars.push('—');
+  document.getElementById('num-disp').textContent = chars.join(' ');
+}
+function setPreview(html) { document.getElementById('preview').innerHTML = html; }
+
+let lookupSeq = 0;
+async function check() {
+  const btn = document.getElementById('qbtn');
+  found = null; btn.disabled = true;
+  if (N.length === 0) return setPreview('<span class="phint">학번 4자리를 입력하세요</span>');
+  if (N.length < 4) return setPreview(`<span class="phint">학번 4자리를 입력하세요 (${N.length}/4)</span>`);
+
+  const key = N, seq = ++lookupSeq;
+  setPreview('<span class="phint">확인 중...</span>');
+  /* v2 핵심: 명단을 받지 않고 이 학번 하나만 물어본다. */
+  const res = await auth({ action: 'lookupStudent', key });
+  if (seq !== lookupSeq || N !== key) return;          // 그새 입력이 바뀌면 버린다
+  if (res.error === 'unauthorized') return showSetup('기기 등록이 해제되었습니다. 다시 등록해주세요.');
+  if (res.error) return setPreview('<span class="perr">서버 오류. 잠시 후 다시 시도하세요.</span>');
+  if (!res.found) return setPreview(`<span class="perr">학번 ${key}을 찾을 수 없습니다</span>`);
+  found = res;
+  setPreview(`<div><div class="pname">${res.name}</div><div class="pid">${key} &nbsp;·&nbsp; ${res.grade}학년 ${res.cls}반 ${key.slice(2)}번</div></div>`);
+  btn.disabled = false;
+}
+
+function kp(n) { if (N.length < 4) { N += String(n); updateNumDisp(); check(); } }
+function kd() { N = N.slice(0, -1); updateNumDisp(); check(); }
+function resetForm() {
+  N = ''; found = null; busy = false;
+  updateNumDisp();
+  setPreview('<span class="phint">학번 4자리를 입력하세요</span>');
+  document.getElementById('qbtn').disabled = true;
+}
+
+async function submitQ() {
+  if (!found || busy) return;
+  busy = true;
+  document.getElementById('qbtn').disabled = true;
+  const name = found.name;
+  const res = await auth({ action: 'addQueue', key: found.key });
+  const msg = document.getElementById('ok-msg');
+  msg.style.cssText = '';
+  if (res.error) {
+    msg.textContent = res.error === '이미 대기 중인 학생입니다.'
+      ? `${name} 학생은 이미 대기 중입니다!` : '오류가 발생했습니다. 다시 시도해주세요.';
+    msg.style.cssText = 'background:#fef2f2;border-color:#fca5a5;color:#7f1d1d';
+  } else {
+    msg.textContent = `${name} 학생 대기 접수 완료!`;
+  }
+  msg.classList.add('show');
+  setTimeout(() => { msg.classList.remove('show'); msg.style.cssText = ''; }, 3000);
+  resetForm();
+  loadQueue();
+}
+
+/* ── 수업종 ── */
+let bellTimer = null;
+function showBell() {
+  const ov = document.getElementById('bell-overlay');
+  if (ov.classList.contains('show')) return;
+  ov.classList.add('show');
+  let sec = 30;
+  const paint = () => document.getElementById('bell-timer').textContent = `${sec}초 후 사라집니다`;
+  paint();
+  bellTimer = setInterval(() => {
+    sec--; paint();
+    if (sec <= 0) { clearInterval(bellTimer); ov.classList.remove('show'); }
+  }, 1000);
+}
+
+/* ── 대기 목록 ── */
+async function loadQueue() {
+  if (!TOKEN) return showSetup();
+  const res = await auth({ action: 'getQueue' });
+  const off = document.getElementById('offline-msg');
+  if (res.error === 'unauthorized') return showSetup('기기 등록이 해제되었습니다. 다시 등록해주세요.');
+  if (res.error || !res.queue) {
+    off.classList.add('show');
+    off.textContent = '서버 연결 오류. 잠시 후 재시도합니다.';
+    return;
+  }
+  off.classList.remove('show');
+  if (res.bell && res.bell > lastBell) { lastBell = res.bell; showBell(); }
+  document.getElementById('r-count').textContent = res.queue.length;
+  const list = document.getElementById('r-list');
+  list.innerHTML = res.queue.length
+    ? res.queue.map((e, i) => `<div class="mini-item"><span class="mi-num">${i + 1}</span><span class="mi-name">${e.name}</span></div>`).join('')
+    : '<div style="text-align:center;padding:16px;font-size:13px;color:rgba(255,255,255,.5)">없음</div>';
+}
+
+/* ── 터치 즉시 반응 (v1의 eval 대신 data 속성으로) ── */
+const ACTIONS = { del: kd, reset: resetForm, submit: submitQ };
+function bindTouch(el, fn) {
+  let touched = false;
+  el.addEventListener('touchstart', e => { touched = true; e.preventDefault(); fn(); }, { passive: false });
+  el.addEventListener('click', () => { if (!touched) fn(); touched = false; });
+}
+
+tickClock(); setInterval(tickClock, 1000);
+document.querySelectorAll('[data-k]').forEach(btn => {
+  const k = btn.dataset.k;
+  bindTouch(btn, ACTIONS[k] || (() => kp(k)));
+});
+document.getElementById('setup-btn').addEventListener('click', doSetup);
+document.getElementById('setup-pw').addEventListener('keydown', e => { if (e.key === 'Enter') doSetup(); });
+
+if (!TOKEN) showSetup(); else loadQueue();
+setInterval(() => { if (TOKEN) loadQueue(); }, 5000);
+</script>
+</body>
+</html>
